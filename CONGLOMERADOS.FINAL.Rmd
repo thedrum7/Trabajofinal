@@ -1,0 +1,200 @@
+
+
+```{r}
+library(dplyr)
+
+datos_ordenados <- datafinal %>%
+  select(region, ISO, poblacion, perseve, gedu, Ninguna, ic)
+
+# Verificar el nuevo orden de columnas
+print(datos_ordenados)
+
+```
+
+CONGLOMERADOS:
+transformación de datos
+
+CORRELACIÓN
+```{r}
+cor(datos_ordenados[,c(4:6)])
+```
+
+
+BORRAR ALGUNAS VARIABLES:
+```{r}
+dataClus=datos_ordenados[,c(4:6)]
+row.names(dataClus)=datos_ordenados$ISO
+```
+
+```{r}
+library(cluster)
+g.dist = daisy(dataClus, metric="gower")
+```
+
+
+ELABORAR ESTRATEGIAS DE PARTICIÓN (PAM) Y JERARQUIZACIÓN (AGNES - DIANA)
+
+PAM: estrategia de partición 
+```{r}
+library(factoextra)
+fviz_nbclust(dataClus, pam,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F)
+```
+Me recomienda idealmente no agrupar en grupos los países, al ser una sugerencia para comparar que cluserización es mejor entre los modelos decido agrupar a todos los modelos en grupos de 3.
+
+```{r}
+library(kableExtra)
+set.seed(123)
+res.pam=pam(g.dist,3,cluster.only = F)
+
+dataClus$pam=res.pam$cluster
+head(dataClus,15)%>%kbl()%>%kable_styling()
+```
+
+
+```{r}
+fviz_silhouette(res.pam,print.summary = F)
+```
+
+```{r}
+silPAM=data.frame(res.pam$silinfo$widths)
+silPAM$country=row.names(silPAM)
+poorPAM=silPAM[silPAM$sil_width<0,'country']%>%sort()
+poorPAM
+```
+
+```{r}
+datos_ordenados$pamICpoor=datos_ordenados$ISO%in%poorPAM
+datos_ordenados$pamIC=as.ordered(dataClus$pam)
+dataClus$pam=NULL
+```
+
+
+ESTRATEGIA DE JERARQUIZACIÓN: 
+
+AGNES
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "agnes")
+```
+Sigue recomendando solo un grupo 
+
+```{r}
+set.seed(123)
+library(factoextra)
+
+res.agnes<- hcut(g.dist, k = 3,hc_func='agnes',hc_method = "ward.D")
+
+dataClus$agnes=res.agnes$cluster
+
+
+head(dataClus,15)%>%kbl()%>%kable_styling()
+```
+
+```{r}
+fviz_silhouette(res.agnes,print.summary = F)
+```
+
+
+```{r}
+silAGNES=data.frame(res.agnes$silinfo$widths)
+silAGNES$country=row.names(silAGNES)
+poorAGNES=silAGNES[silAGNES$sil_width<0,'country']%>%sort()
+poorAGNES
+```
+
+```{r}
+datos_ordenados$agnesICpoor=datos_ordenados$ISO%in%poorAGNES
+datos_ordenados$agnesIC=as.ordered(dataClus$agnes)
+dataClus$agnes=NULL
+```
+
+
+DIANA
+
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "diana")
+```
+
+```{r}
+set.seed(123)
+res.diana <- hcut(g.dist, k = 3,hc_func='diana')
+dataClus$diana=res.diana$cluster
+
+head(dataClus,15)%>%kbl%>%kable_styling()
+```
+
+```{r}
+fviz_silhouette(res.diana,print.summary = F)
+```
+```{r}
+silDIANA=data.frame(res.diana$silinfo$widths)
+silDIANA$country=row.names(silDIANA)
+poorDIANA=silDIANA[silDIANA$sil_width<0,'country']%>%sort()
+poorDIANA
+```
+
+```{r}
+datos_ordenados$dianaICpoor=datos_ordenados$ISO%in%poorDIANA
+datos_ordenados$dianaIC=as.ordered(dataClus$diana)
+dataClus$diana=NULL
+```
+
+
+Al comparar la cantidad de errores de los tres modelos de siluetas podemos observar que la estrategia más adecuada es la estrategia jerarquica ya que posee menos errores a comparación de las demás.**diana** 
+
+```{r}
+str(datos_ordenados)
+```
+```{r}
+datos_ordenados$pamICpoor<- NULL
+datos_ordenados$pamIC<- NULL
+datos_ordenados$agnesICpoor<- NULL
+datos_ordenados$agnesIC<- NULL
+datos_ordenados$dianaICpoor<- NULL
+```
+
+```{r}
+datos_ordenados$dianaIC=as.factor(datos_ordenados$dianaIC)
+str(datos_ordenados)
+```
+
+MAPA
+```{r}
+mapMUN=sf::read_sf("World_Countries_Generalized.shp")
+head(mapMUN3)
+```
+
+
+```{r}
+mapMUN3=merge(mapMUN,datos_ordenados,by = "ISO", all.x = T)
+```
+
+
+```{r}
+# Definir el gráfico base
+mapaley3 <- ggplot(mapMUN3) + 
+  geom_sf(aes(fill = dianaIC), color = "#DCDCDC") +
+  scale_fill_manual(values = c("#FF6AD5", "#94D0FF", "#AD8CFF"), labels = na.omit(c("Grupo 1", "Grupo 2", "Grupo 3"))) +
+  labs(fill = "Grupos de Conglomerados",
+       title = "Conglomerados",
+       subtitle = "separados en 3 grupos",
+       caption = "Fuente: Diana") +
+  theme(
+    axis.title = element_blank(), 
+    axis.text = element_blank(), 
+    legend.position = "bottom",
+    plot.title = element_text(color = "black", size = 10, face = "bold"),
+    legend.text = element_text(size = 8)
+  ) +
+  coord_sf()
+
+library(plotly)
+ggplotly(mapaley3)
+
+# Mostrar el gráfico
+mapaley3
+
+```
+
+
+
+

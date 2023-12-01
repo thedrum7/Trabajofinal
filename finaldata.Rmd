@@ -1,0 +1,457 @@
+
+-   **Scraping del índice de criminalidad**
+
+```{r}
+library(rvest)
+
+linkToWebIDE="https://es.numbeo.com/criminalidad/clasificaciones-por-pa%C3%ADs?title=2020"
+xpathToTableIDE='//*[@id="t2"]'
+ide <- read_html(linkToWebIDE)%>%html_nodes(xpath = xpathToTableIDE)%>%html_table()%>% .[[1]]
+```
+
+```{r}
+colnames(ide) = c("Puesto","Pais","ic","is")
+```
+
+```{r}
+ide$Puesto<- NULL
+ide$is<- NULL
+str(ide)
+```
+
+```{r}
+gsub(',',".",ide$ic)
+```
+
+```{r}
+ide$Countrycode=c('VEN', 'PNG', 'ZAF', 'AFG', 'HND', 'TTO', 'BRA', 'PER', 'SLV', 'GUY', 'NAM', 'SYR', 'JAM', 'PRI', 'AGO', 'BGD', 'NGA', 'BHS', 'LBY', 'KAZ', 'ARG', 'KEN', 'DOM', 'UGA', 'TZA', 'FJI', 'MYS', 'SOM', 'MNG', 'GTM', 'ZWE', 'CRI', 'COL', 'MEX', 'URY', 'BWA', 'MDV', 'BOL', 'ECU', 'KHM', 'DZA', 'PRY', 'IRN', 'ETH', 'GHA', 'UKR', 'MAR', 'IRQ', 'MUS', 'USA', 'PAN', 'SWE', 'EGY', 'FRA', 'BRM', 'IDN', 'IRL', 'VNM', 'CHL', 'MDA', 'NIC', 'ITA', 'PAK', 'BEL', 'GBR', 'PSE', 'LBN', 'IND', 'BIH', 'PHL', 'TUN', 'AUS', 'MNE', 'RUS', 'NZL', 'JOR', 'THA', 'GRC', 'LKA', 'CAN', 'ALB', 'TUR', 'MLT', 'MKD', 'BGR', 'SRB', 'LVA', 'NOR', 'HUN', 'DEU', 'KWT', 'NPL', 'LUX', 'LTU', 'XKX', 'ESP', 'CHI', 'AZE', 'SGP', 'CYP', 'PRT', 'ISR', 'BAR', 'SVK', 'POL', 'PRK', 'BRN', 'ROU', 'NDL', 'CUB', 'SAU', 'CZE', 'DNK', 'BLR', 'HRV', 'AUT', 'ISL', 'FIN', 'EST', 'ARM', 'CHE', 'SVN', 'OMN', 'HKG', 'JPN', 'GEO', 'ARE', 'TWN', 'QAT')
+```
+
+[**Empezando el merge**]{.underline}
+
+-   *Importación de data*
+
+```{r}
+library(rio)
+gedu=import("gastoeduactu.xlsx")
+persesco=import("bmpersev.xls")
+pobla= import("pobactu.xls")
+nada= import("ningunactu.xlsx")
+
+```
+
+```{r}
+pobla$'Country Name'<- NULL
+persesco$'Country Name'<- NULL
+nada$'Pais'<- NULL
+ide$'Pais'<- NULL
+gedu$'Country Name'<- NULL
+```
+
+```{r}
+nada <- nada[order(nada$`Country Code`), ]
+```
+
+```{r}
+ide = ide [ , c(2,1)]
+names(ide)
+```
+```{r}
+ide <- ide[order(ide$`Countrycode`), ]
+```
+
+```{r}
+ide$Countrycode=trimws(ide$Countrycode,whitespace = "[\\h\\v]")
+persesco$`Country Code`=trimws(persesco$`Country Code`,whitespace = "[\\h\\v]")
+gedu$`Country Code`=trimws(gedu$`Country Code`,whitespace = "[\\h\\v]")
+nada$`Country Code`=trimws(nada$`Country Code`,whitespace = "[\\h\\v]")
+pobla$`Country Code`=trimws(pobla$`Country Code`,whitespace = "[\\h\\v]")
+```
+
+
+-   *merge pobla y gedu*
+
+```{r}
+test1 = merge(pobla,gedu, by.x ="Country Code", by.y ="Country Code", all.x = T)
+```
+
+```{r}
+test1 <- test1[complete.cases (test1), ]
+```
+
+-   *merge test1 con persesco*
+
+```{r}
+test2 = merge(test1,persesco, by.x ="Country Code", by.y ="Country Code", all.x = T)
+```
+
+```{r}
+test2 <- test2[complete.cases (test2),]
+```
+
+-   *merge test2 con ide*
+
+```{r}
+test3 = merge(test2,ide, by.x ="Country Code", by.y ="Countrycode", all.x = T)
+```
+
+```{r}
+test3 <- test3[complete.cases (test3),]
+```
+
+-   *merge test3 con nada*
+
+```{r}
+finaldata = merge(test3,nada, by.x ="Country Code", by.y ="Country Code", all.x = T)
+```
+
+-   *eliminar NA*
+
+```{r}
+datafinal <- finaldata [complete.cases (finaldata),]
+datafinal
+```
+
+```{r}
+str(datafinal)
+```
+
+```{r}
+datafinal$ic <- gsub(",", ".", datafinal$ic)
+datafinal$ic= as.numeric(datafinal$ic)
+```
+
+```{r}
+str(datafinal)
+```
+
+```{r}
+datafinal$region=c("Asia", "África", "Asia", "América del sur", "Asia", "Europa", "Europa", "Europa", "Europa", "América del sur", "América del sur", "Asia", "África", "América del norte", "Europa", "América del sur", "América del sur", "América central", "Asia", "Europa", "Europa", "Europa", "América central", "América del sur", "África", "Europa", "Europa", "África", "Europa", "Europa", "Asia", "Europa", "América central", "Asia", "América central", "Europa", "Europa", "Asia", "Asia", "Asia", "Europa", "Asia", "Europa", "América central", "Asia", "África", "Asia", "Asia", "Europa", "Europa", "Europa", "Europa", "América del norte", "Europa", "Asia", "África", "Asia", "Europa", "Asia", "América del sur", "América del sur", "Asia", "Europa", "Europa", "Europa", "Asia", "Asia", "América central", "Europa", "Europa", "Europa", "Europa", "Asia", "América central", "Asia", "África", "África", "América del sur", "América del norte", "América del sur", "Asia", "África", "África")
+```
+
+```{r}
+datafinal$region= as.factor(datafinal$region)
+str(datafinal)
+```
+
+**REGRESIÓN GAUSSIANA** Se busca que grupo de variables aportan más en
+el modelo. Siendo todas las variables numericas y continuas.
+
+variable dependiente: IC -indice de criminalidad variables
+indepedientes: -gastoeduactu.xls: base de datos de gasto en educación
+por país. -bmpersev.xlsx : base de datos de la perseverancia hasta el
+último año de primaria a nivel mundial. -pobactu.xlsx: base de datos de
+la población entre 0 y 14 años como porcentaje de la población total.
+-ningunactu.xls: base de datos de la proporción de jóvenes que no están
+en el sistema educativo ni ocupados ni en formación.
+
+```{r}
+colnames(datafinal)[colnames(datafinal) == "gasto edu"] <- "gedu"
+```
+
+H1: EL indice de criminalidad es afectado por el porcentaje de perseverancia, controlado por la población mundial.
+
+```{r}
+modelo1=formula(ic~perseve+poblacion)
+reg1=lm(modelo1,data=datafinal)
+summary(reg1)
+```
+
+```{r}
+modelo2=formula(ic~perseve+gedu+poblacion)
+reg2=lm(modelo2,data=datafinal)
+summary(reg2)
+```
+
+```{r}
+modelo3=formula(ic~perseve+gedu+Ninguna+poblacion)
+reg3=lm(modelo3,data=datafinal)
+summary(reg3)
+```
+
+```{r}
+modelo3_st=formula(scale(ic)~scale(perseve)+scale(gedu)+scale(Ninguna)+scale(poblacion))
+
+modelo3_st=lm(modelo3_st,data=datafinal)
+
+library(modelsummary)
+modelo3_st=list('modelo (III_st)'=modelo3_st)
+modelsummary(modelo3_st, title = "Regresion: modelo 3 con \ncoeficientes estandarizados",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+anova:
+
+```{r}
+library(magrittr)
+library(knitr)
+tanova=anova(reg1,reg2,reg3)
+
+kable(tanova,
+      caption = "Tabla ANOVA para comparar modelos")%>%kableExtra::kable_styling(full_width = FALSE)
+```
+
+###VA AL DASHBOARD
+
+```{r}
+models=list('Regresion (I)'=reg1,
+            'Regresion (II)'=reg2,
+            'Regresion (III)'=reg3)
+modelsummary(models, title = "Resultados de todos los modelos",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+```{r}
+models=list('Regresion (I)'=reg1,
+            'Regresion (II)'=reg2,
+            'Regresion (III)'=reg3)
+modelsummary(models, title = "Resultados de todos los modelos",statistic = "conf.int",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+```{r}
+dontselect=c("Country Code","ic")
+select=setdiff(names(datafinal),dontselect) 
+theData=datafinal[,select]
+```
+
+```{r}
+library(polycor)
+corMatrix=polycor::hetcor(theData)$correlations
+```
+
+```{r}
+round(corMatrix,2)
+```
+
+```{r}
+library(ggcorrplot)
+
+ggcorrplot(corMatrix)
+```
+
+```{r}
+library(psych)
+psych::KMO(corMatrix) 
+```
+```{r}
+cortest.bartlett(corMatrix,n=nrow(theData))$p.value>0.05
+```
+```{r}
+library(matrixcalc)
+
+is.singular.matrix(corMatrix)
+```
+
+
+------------------------------------------------------------------------
+
+```{r}
+library(ggplot2)
+library(sjPlot)
+
+
+plot_models(reg1,reg2,reg3,vline.color = "black",m.labels=c("Modelo 1","Modelo 2","Modelo 3"),dot.size = 1,line.size = 0.6)
+
+```
+
+##Relación de residuos y valores LINEALIDAD:
+
+```{r}
+plot(reg2, 1)
+```
+
+HOMOCEDASTICIDAD:
+
+```{r}
+plot(reg2, 3)
+```
+
+```{r}
+library(lmtest)
+library(kableExtra)
+# null: modelo homocedastico
+resBP=bptest(reg2)
+data.frame(list('BP'=resBP$statistic,
+             'df'=resBP$parameter,
+             "p-value"=resBP$p.value))%>%
+    kable(caption = resBP$method)%>%kable_styling(full_width = F)
+```
+
+Si demuestra homocedasticidad por que el p value es mayor de 0.05.
+
+NORMALIDAD DE RESIDUOS
+
+```{r}
+plot(reg2, 2)
+```
+
+```{r}
+resSW=shapiro.test(reg2$residuals)
+data.frame(list('SW'=resSW$statistic,
+             "p-value"=resSW$p.value))%>%
+    kable(caption = resSW$method)%>%kable_styling(full_width = F)
+```
+
+\*\*\*si se puede hacer inferencias??? de acuerdo al p value
+
+no multicolinelidad
+
+```{r}
+library(DescTools)
+# > 5 es problematico
+VIF(reg2) %>%kable(col.names = "VIF",caption ="Evaluando Multicolinealidad usando VIF (Variance Inflation Factors)" )%>%kable_styling(full_width = F)
+```
+
+No perjudica tanto el calculo de ic, pero evita calcular bien el efecto
+de cada regresor
+
+Valores influyentes
+
+```{r}
+plot(reg2, 5)
+```
+
+```{r}
+checkReg2=as.data.frame(influence.measures(reg2)$is.inf)
+checkReg2[checkReg2$cook.d & checkReg2$hat,c('cook.d','hat')]%>%kable(caption = "Valores Influyentes criticos")%>%kable_styling(full_width = F)
+```
+
+##Tabla para visualización regional
+
+```{r}
+table(datafinal$region)
+```
+
+```{r}
+library(dplyr)
+a = datafinal %>% group_by(region) %>% summarize(promedio = mean(ic, na.rm = T))
+a$promedio = round(a$promedio, 0)
+
+b = datafinal %>% group_by(region) %>% summarize(promedio2 = mean(perseve, na.rm = T))
+b$promedio2 = round(b$promedio2, 0)
+
+c = datafinal %>% group_by(region) %>% summarize(promedio3 = mean(gedu, na.rm = T))
+b$promedio3 = round(c$promedio3, 0)
+
+d = datafinal %>% group_by(region) %>% summarize(promedio4 = mean(Ninguna, na.rm = T))
+b$promedio4 = round(d$promedio4, 0)
+```
+
+```{r}
+library(ggplot2)
+ggplot(a, aes(x=region, y=promedio)) +
+geom_bar(stat = "identity", lwd=2, fill= "#CCE1E2") + coord_flip()+
+  
+labs(title = "Indice de criminalidad",
+x = " ",
+y = "0 - 80")+
+geom_text(aes(label=promedio),color="#009B9F", size=5, vjust=0.5)+ theme_bw()+
+ylim(c(0,80))
+```
+
+```{r}
+library(ggplot2)
+ggplot(d, aes(x=region, y=promedio4)) +
+geom_bar(stat = "identity", lwd=2, fill= "#CCE1E2") + coord_flip()+
+  
+labs(title = "No ocupa, no estudia",
+x = " ",
+y = "0 - 50 %")+
+geom_text(aes(label=paste0(round(promedio4,0),"%")),color="#009B9F", size=5, vjust=0.5)+ theme_bw()+
+ylim(c(0,50))
+```
+
+```{r}
+library(ggplot2)
+ggplot(b, aes(x=region, y=promedio2)) +
+geom_bar(stat = "identity", fill= "#CCE1E2") + coord_flip()+
+  
+labs(title = "Perseverancia en estudios",
+x = " ",
+y = "0 - 100")+
+geom_text(aes(label=paste0(round(promedio2,0),"%")),color="#009B9F", size=5, vjust=0.5)+ theme_bw()+
+ylim(c(0,100))
+```
+
+```{r}
+library(ggplot2)
+ggplot(c, aes(x=region, y=promedio3)) +
+geom_bar(stat = "identity", fill= "#CCE1E2") + coord_flip()+
+  
+labs(title = "Porcentaje de gasto en educación",
+x = " ",
+y = "0 - 30")+
+geom_text(aes(label=paste0(round(promedio3,0),"%")),color="#009B9F", size=5, vjust=0.5)+ theme_bw()+
+ylim(c(0,30))
+```
+
+```{r}
+ggplot(datafinal, aes(x=ic, y=gedu, color = "#009B9F")) + geom_point() +
+  geom_point(size=3, shape=20) +
+  geom_text(label=datafinal$`Country Code`, vjust=-0.5, hjust = 1,color="black", size=3) +
+  
+  
+    labs(title = "Indice de criminalidad y el gasto en educación",
+       subtitle = "Correlación entre ic y gedu",
+       x = "Índice de criminalidad",
+       y = "Gasto en educación") +
+  
+   scale_color_manual(values=c("#009B9F",'Red')) +
+ theme(legend.position = "none")+
+  ylim(0,30)
+```
+
+```{r}
+ggplot(datafinal, aes(x=ic, y=Ninguna, color = "#009B9F")) + geom_point() +
+  geom_point(size=3, shape=20) +
+  geom_text(label=datafinal$`Country Code`, vjust=-0.5, hjust = 1,color="black", size=3) +
+  
+  
+    labs(title = "Indice de criminalidad y grupo de niños que no estudian ni se ocupan de una actividad económica",
+       subtitle = "Correlación entre ic y ninguna",
+       x = "Índice de criminalidad",
+       y = "No ocupa, no estudia") +
+  
+   scale_color_manual(values=c("#009B9F",'Red')) +
+ theme(legend.position = "none")+
+  ylim(0,70)
+```
+
+```{r}
+ggplot(datafinal, aes(x=ic, y=perseve, color = "#009B9F")) + geom_point() +
+  geom_point(size=3, shape=20) +
+  geom_text(label=datafinal$`Country Code`, vjust=-0.5, hjust = 1,color="black", size=3) +
+  
+  
+    labs(title = "Indice de criminalidad y perseverancia en culminar sus estudios",
+       subtitle = "Correlación entre ic y perseve",
+       x = "Índice de criminalidad",
+       y = "Perseverancia") +
+  
+   scale_color_manual(values=c("#009B9F",'Red')) +
+ theme(legend.position = "none")+
+  ylim(0,70)
+```
+
+
+```{r}
+datafinal$`Country Code` <- c("AFG" = "AF", "AGO" = "AO", "ARE" = "AE", "ARG" = "AR", "ARM" = "AM", "AUT" = "AT", "BEL" = "BE", "BGR" = "BG", "BLR" = "BY", "BOL" = "BO", "BRA" = "BR", "BRN" = "BN", "BWA" = "BW", "CAN" = "CA", "CHE" = "CH", "CHL" = "CL", "COL" = "CO", "CRI" = "CR", "CYP" = "CY", "CZE" = "CZ", "DEU" = "DE", "DNK" = "DK", "DOM" = "DO", "ECU" = "EC", "EGY" = "EG", "ESP" = "ES", "EST" = "EE", "ETH" = "ET", "FIN" = "FI", "FRA" = "FR", "GEO" = "GE", "GRC" = "GR", "GTM" = "GT", "HKG" = "HK", "HND" = "HN", "HRV" = "HR", "HUN" = "HU", "IDN" = "ID", "IND" = "IN", "IRN" = "IR", "ISL" = "IS", "ISR" = "IL", "ITA" = "IT", "JAM" = "JM", "JOR" = "JO", "KEN" = "KE", "KHM" = "KH", "LKA" = "LK", "LTU" = "LT", "LUX" = "LU", "LVA" = "LV", "MDA" = "MD", "MEX" = "MX", "MLT" = "MT", "MNG" = "MN", "MUS" = "MU", "MYS" = "MY", "NOR" = "NO", "PAK" = "PK", "PAN" = "PA", "PER" = "PE", "PHL" = "PH", "POL" = "PL", "PRT" = "PT", "ROU" ="RO", "SAU" = "SA", "SGP" = "SG", "SLV" = "SV", "SRB" = "RS", "SVK" = "SK", "SVN" = "SI", "SWE" = "SE", "THA" = "TH", "TTO" = "TT", "TUR" = "TR", "TZA" = "TZ", "UGA" = "UG", "URY" = "UY", "USA" = "US", "VEN" = "VE", "VNM" = "VN", "ZAF" = "ZA", "ZWE" = "ZW")
+
+```
+
+```{r}
+colnames(datafinal)[1] = "ISO"
+```
+
+```{r}
+install.packages("DT")
+library(DT)
+cuadro = datafinal[,c(1,5)]
+colnames(cuadro)[2] = "Indice de criminalidad"
+datatable(cuadro, filter = "top")
+```
+

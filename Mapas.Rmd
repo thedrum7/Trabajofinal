@@ -1,0 +1,51 @@
+---
+title: "Mapas"
+output: html_document
+date: "2023-11-15"
+---
+
+```{r}
+library(rio)
+library(ggplot2)
+library(DT)
+library(kableExtra)
+library(modelsummary)
+library(Rmisc)
+library(forcats)
+```
+
+```{r}
+data = import("data_final.xlsx")
+```
+
+```{r}
+mapMUN=sf::read_sf("World_Countries_Generalized.shp")
+head(mapMUN)
+```
+
+```{r}
+mapMUN2=merge(mapMUN,data,by = "ISO", all.x = T)
+```
+
+```{r}
+mapaleyenda= ggplot(mapMUN2)+ geom_sf() + theme_light()
+
+mapaley= mapaleyenda + geom_sf(data=mapMUN2,
+              aes(fill=`ic`),color = "gray")
+      
+mapa1= mapaley +
+coord_sf() + 
+scale_fill_gradient(low = "#FCFBFF",  high = "#3D1778",breaks=seq(from=0, to=100, by=20)) + theme_void() + 
+  
+theme(axis.title = element_blank(), axis.text = element_blank(), legend.position = "right") + labs(fill=" ") + theme(legend.text = element_text(size = 8)) +
+  
+labs(title = "Indice de criminalidad en el mundo",
+     subtitle = "Escala del 0 al 100",
+    caption = "Fuente: NUMBEO 2018") +
+  
+theme(
+plot.title = element_text(color="black", size=10, face="bold"))
+
+mapa1
+```
+
